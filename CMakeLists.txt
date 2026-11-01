@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(webos-nfl-autopilot VERSION 0.1.0 LANGUAGES C CXX)
+project(webos-sports-autopilot VERSION 0.1.0 LANGUAGES C CXX)
 
 # HOST_BUILD=ON builds only the portable core (detector + autopilot), the unit
 # tests and the replay tool, so they can run on a normal PC.
@@ -15,26 +15,26 @@ option(HOST_BUILD "Build host-side core, tests and tools only" ${_host_default})
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-add_library(nflap_core STATIC
+add_library(sportsap_core STATIC
     src/core/detector.c
     src/core/autopilot.c
     src/core/frame_io.c
 )
-target_include_directories(nflap_core PUBLIC src/core)
-target_link_libraries(nflap_core PUBLIC m)
-target_compile_options(nflap_core PRIVATE -Wall -Wextra)
+target_include_directories(sportsap_core PUBLIC src/core)
+target_link_libraries(sportsap_core PUBLIC m)
+target_compile_options(sportsap_core PRIVATE -Wall -Wextra)
 
 if(HOST_BUILD)
     enable_testing()
     foreach(t test_detector test_autopilot)
         add_executable(${t} tests/${t}.c)
-        target_link_libraries(${t} nflap_core)
+        target_link_libraries(${t} sportsap_core)
         target_compile_options(${t} PRIVATE -Wall -Wextra)
         add_test(NAME ${t} COMMAND ${t})
     endforeach()
 
     add_executable(replay tools/replay.c)
-    target_link_libraries(replay nflap_core)
+    target_link_libraries(replay sportsap_core)
     return()
 endif()
 
@@ -57,7 +57,7 @@ pkg_check_modules(PMLOG REQUIRED PmLogLib)
 
 add_subdirectory(third_party/unicapture)
 
-add_executable(nfl-autopilot
+add_executable(sports-autopilot
     src/tv/main.c
     src/tv/service.c
     src/tv/settings.c
@@ -67,17 +67,17 @@ add_executable(nfl-autopilot
     src/tv/debug_http.c
     src/tv/recorder.c
 )
-target_include_directories(nfl-autopilot PRIVATE
+target_include_directories(sports-autopilot PRIVATE
     src/tv
     ${GLIB2_INCLUDE_DIRS} ${GTHREAD2_INCLUDE_DIRS} ${PBNJSON_INCLUDE_DIRS}
     ${LS2_INCLUDE_DIRS} ${PMLOG_INCLUDE_DIRS})
-target_compile_options(nfl-autopilot PRIVATE -Wall -Wextra)
-target_compile_definitions(nfl-autopilot PRIVATE NFLAP_VERSION="${PROJECT_VERSION}")
-set_target_properties(nfl-autopilot PROPERTIES
+target_compile_options(sports-autopilot PRIVATE -Wall -Wextra)
+target_compile_definitions(sports-autopilot PRIVATE SPORTSAP_VERSION="${PROJECT_VERSION}")
+set_target_properties(sports-autopilot PROPERTIES
     BUILD_RPATH_USE_ORIGIN ON
     INSTALL_RPATH "$ORIGIN:$ORIGIN/lib"
     BUILD_RPATH "$ORIGIN:$ORIGIN/lib"
 )
-target_link_libraries(nfl-autopilot
-    nflap_core unicapture pthread dl rt
+target_link_libraries(sports-autopilot
+    sportsap_core unicapture pthread dl rt
     ${GTHREAD2_LDFLAGS} ${PBNJSON_LDFLAGS} ${LS2_LDFLAGS} ${GLIB2_LDFLAGS} ${PMLOG_LDFLAGS})

@@ -1,10 +1,10 @@
 {
-  "id": "org.nflautopilot.app.service",
-  "description": "NFL Autopilot native service",
+  "id": "org.sportsautopilot.app.service",
+  "description": "Sports Autopilot native service",
   "engine": "native",
-  "executable": "nfl-autopilot",
+  "executable": "sports-autopilot",
   "services": [{
-    "name": "org.nflautopilot.app.service",
-    "description": "NFL Autopilot native service"
+    "name": "org.sportsautopilot.app.service",
+    "description": "Sports Autopilot native service"
   }]
 }

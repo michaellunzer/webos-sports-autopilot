@@ -1,4 +1,4 @@
-# NFL Autopilot for YouTube TV (rooted LG webOS)
+# Sports Autopilot for YouTube TV (rooted LG webOS)
 
 A Homebrew Channel app and native service for a **rooted LG TV** (built for the 55UM7300PUA, webOS 4.5). It watches **YouTube TV Multiview** and moves the audio/focus to another game whenever the current one cuts to a commercial. A second mode keeps one game **full screen** and hops to a live game at each break.
 
@@ -50,31 +50,31 @@ capture (vtcapture / dile_vt, 320x180 @ 3 fps)
 
 YouTube TV is DRM-protected, and on some firmware the capture returns black frames. Check this before anything else.
 
-1. Install the ipk (see below). Open **NFL Autopilot** and press **Grant root** once.
+1. Install the ipk (see below). Open **Sports Autopilot** and press **Grant root** once.
 2. Start YouTube TV Multiview with live games, then SSH into the TV (`ssh root@<tv-ip>`) and run:
    ```sh
-   /media/developer/apps/usr/palm/services/org.nflautopilot.app.service/nfl-autopilot --capture-test 10
+   /media/developer/apps/usr/palm/services/org.sportsautopilot.app.service/sports-autopilot --capture-test 10
    ```
-   The last line is the verdict: `capture works`, `all black` or `no frames`. Copy `/tmp/nfl-autopilot-capture-*.ppm` to a PC and open them to see what was captured.
-   - If frames are black, try the other backend or a quirk in `/media/developer/nfl-autopilot/config.json`, then rerun:
+   The last line is the verdict: `capture works`, `all black` or `no frames`. Copy `/tmp/sports-autopilot-capture-*.ppm` to a PC and open them to see what was captured.
+   - If frames are black, try the other backend or a quirk in `/media/developer/sports-autopilot/config.json`, then rerun:
      - `"video_backend": "libdile_vt"`
      - `"quirks": 1` / `2` / `4` (dile_vt)
      - `"quirks": 256` (vtcapture)
 3. Find your color-button codes:
    ```sh
-   .../nfl-autopilot --listen-keys
+   .../sports-autopilot --listen-keys
    ```
    Press Red, Green, Yellow, Blue, the arrows, OK and Back. The defaults are Linux `KEY_RED=398`, `KEY_GREEN=399`, `KEY_YELLOW=400`, `KEY_BLUE=401`, arrows `105/106/103/108`, `ENTER=28`, `BACK=158`. If your remote differs, set `key_*` in the config.
    - The UM7300's basic IR remote has color buttons. A Magic Remote only offers them in the on-screen "…" menu.
 4. Check that injected keys reach YouTube TV. With Multiview on screen, run:
    ```sh
-   .../nfl-autopilot --send-key RIGHT
+   .../sports-autopilot --send-key RIGHT
    ```
    Focus should move to the next game. If nothing happens, try `--send-key 106` and compare against the codes from step 3.
 
 ## Build and install
 
-GitHub Actions builds the `.ipk` on every push (artifact **nfl-autopilot-ipk**). To build locally, you need the [buildroot-nc4 toolchain](https://github.com/openlgtv/buildroot-nc4/releases) and `npm i -g @webosose/ares-cli`. Then run:
+GitHub Actions builds the `.ipk` on every push (artifact **sports-autopilot-ipk**). To build locally, you need the [buildroot-nc4 toolchain](https://github.com/openlgtv/buildroot-nc4/releases) and `npm i -g @webosose/ares-cli`. Then run:
 
 ```bash
 git submodule update --init --recursive
@@ -107,16 +107,16 @@ Opening the page keeps capture running for 60 s even when autopilot is off. Set 
 
 1. During a game window, press **Start recording** in the app, or call:
    ```sh
-   luna-send -n 1 luna://org.nflautopilot.app.service/record '{"start":true}'
+   luna-send -n 1 luna://org.sportsautopilot.app.service/record '{"start":true}'
    ```
-   Frames are saved at 1 fps to `/media/developer/nfl-autopilot/rec/<timestamp>/`, up to 1800 frames (about 300 MB), along with a `labels.csv` of what the detector decided.
+   Frames are saved at 1 fps to `/media/developer/sports-autopilot/rec/<timestamp>/`, up to 1800 frames (about 300 MB), along with a `labels.csv` of what the detector decided.
 2. Copy the folder to a PC and replay it with different parameters:
    ```bash
    build-host/replay --param live_score_on=0.03 --param ad_hold_ms=5000 rec/20261102-131500 > timeline.csv
    ```
 3. Put the values that work into the config, either through the `setSettings` luna method or by editing `config.json` and restarting the service.
 
-Settings live in `/media/developer/nfl-autopilot/config.json`. See `src/tv/settings.c` for every key and its default. Notable ones:
+Settings live in `/media/developer/sports-autopilot/config.json`. See `src/tv/settings.c` for every key and its default. Notable ones:
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -131,7 +131,7 @@ Settings live in `/media/developer/nfl-autopilot/config.json`. See `src/tv/setti
 
 ## Luna API
 
-All methods are on `luna://org.nflautopilot.app.service/`:
+All methods are on `luna://org.sportsautopilot.app.service/`:
 
 | Method | Payload |
 |---|---|

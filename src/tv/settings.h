@@ -1,9 +1,9 @@
 #pragma once
 #include <stdbool.h>
 
-#define APP_ID "org.nflautopilot.app"
-#define SERVICE_NAME "org.nflautopilot.app.service"
-#define DATA_DIR "/media/developer/nfl-autopilot"
+#define APP_ID "org.sportsautopilot.app"
+#define SERVICE_NAME "org.sportsautopilot.app.service"
+#define DATA_DIR "/media/developer/sports-autopilot"
 #define SETTINGS_PATH DATA_DIR "/config.json"
 
 // All user-tunable settings. Persisted as JSON in SETTINGS_PATH and exposed

@@ -47,5 +47,5 @@ jobs:
         run: scripts/build-ipk.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: nfl-autopilot-ipk
+          name: sports-autopilot-ipk
           path: dist/*.ipk

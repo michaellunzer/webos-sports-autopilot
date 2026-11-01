@@ -2,7 +2,7 @@
 // Virtual remote: injects key presses through /dev/uinput (needs root).
 #include <stdbool.h>
 
-#define VREMOTE_NAME "nfl-autopilot virtual remote"
+#define VREMOTE_NAME "sports-autopilot virtual remote"
 
 // Creates the virtual input device advertising `codes`. Returns fd or -errno.
 int vremote_open(const int* codes, int ncodes);

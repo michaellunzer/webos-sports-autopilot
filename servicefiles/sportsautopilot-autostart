@@ -1,5 +1,5 @@
 #!/bin/sh
 # Linked from /var/lib/webosbrew/init.d by the service so it starts at boot
 # (the autopilot itself stays OFF until you press Green).
-luna-send -n 1 luna://org.nflautopilot.app.service/status '{}' >/dev/null 2>&1 &
+luna-send -n 1 luna://org.sportsautopilot.app.service/status '{}' >/dev/null 2>&1 &
 exit 0

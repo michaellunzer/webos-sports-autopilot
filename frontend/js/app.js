@@ -1,9 +1,9 @@
-/* NFL Autopilot - Homebrew Channel front end.
+/* Sports Autopilot - Homebrew Channel front end.
  * Plain ES5/ES6 (webOS 4.5 ships Chromium 53: no async/await). */
 (function () {
   'use strict';
 
-  var SERVICE = 'luna://org.nflautopilot.app.service';
+  var SERVICE = 'luna://org.sportsautopilot.app.service';
   var HBCHANNEL = 'luna://org.webosbrew.hbchannel.service';
   var ELEVATE = '/media/developer/apps/usr/palm/services/org.webosbrew.hbchannel.service/elevate-service';
   var pending = [];
@@ -83,7 +83,7 @@
     elevate: function () {
       log('elevating service via Homebrew Channel...');
       return luna(HBCHANNEL + '/exec', {
-        command: ELEVATE + ' org.nflautopilot.app.service; pkill -x nfl-autopilot; true'
+        command: ELEVATE + ' org.sportsautopilot.app.service; pkill -f \'[s]ports-autopilot$\'; true'
       });
     }
   };

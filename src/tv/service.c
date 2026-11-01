@@ -14,13 +14,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#ifndef NFLAP_VERSION
-#define NFLAP_VERSION "dev"
+#ifndef SPORTSAP_VERSION
+#define SPORTSAP_VERSION "dev"
 #endif
 
 #define AUTOSTART_DIR "/var/lib/webosbrew/init.d"
-#define AUTOSTART_LINK AUTOSTART_DIR "/nflautopilot"
-#define AUTOSTART_SCRIPT "/media/developer/apps/usr/palm/services/" SERVICE_NAME "/nflautopilot-autostart"
+#define AUTOSTART_LINK AUTOSTART_DIR "/sportsautopilot"
+#define AUTOSTART_SCRIPT "/media/developer/apps/usr/palm/services/" SERVICE_NAME "/sportsautopilot-autostart"
 
 // Same symbol trick as hyperion-webos: needed for public service
 // registration on older webOS versions.
@@ -222,7 +222,7 @@ static jvalue_ref status_obj(service_t* svc)
     uint64_t now = now_ms();
     jvalue_ref o = jobject_create();
     jobject_set(o, j_cstr_to_buffer("returnValue"), jboolean_create(true));
-    jobject_set(o, j_cstr_to_buffer("version"), jstring_create(NFLAP_VERSION));
+    jobject_set(o, j_cstr_to_buffer("version"), jstring_create(SPORTSAP_VERSION));
     jobject_set(o, j_cstr_to_buffer("elevated"), jboolean_create(getuid() == 0));
     jobject_set(o, j_cstr_to_buffer("enabled"), jboolean_create(svc->ap.enabled));
     jobject_set(o, j_cstr_to_buffer("mode"), jstring_create(ap_mode_name(svc->ap.mode)));

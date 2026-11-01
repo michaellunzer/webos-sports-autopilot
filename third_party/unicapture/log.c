@@ -16,7 +16,7 @@ LogLevel current_log_level = Info;
 void log_init(void)
 {
 #ifndef HOST_BUILD
-    PmLogGetContext("nfl-autopilot", &context);
+    PmLogGetContext("sports-autopilot", &context);
 #endif
 }
 

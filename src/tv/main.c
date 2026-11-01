@@ -1,9 +1,9 @@
-// nfl-autopilot: on-TV service plus a few command-line diagnostics.
+// sports-autopilot: on-TV service plus a few command-line diagnostics.
 //
-//   nfl-autopilot                     run as luna service (normal mode)
-//   nfl-autopilot --capture-test [s]  capture for s seconds, save frames to /tmp, report black/non-black
-//   nfl-autopilot --listen-keys       print every remote key event (find color-button codes)
-//   nfl-autopilot --send-key KEY      inject one key (LEFT/RIGHT/UP/DOWN/ENTER/BACK or a numeric code)
+//   sports-autopilot                     run as luna service (normal mode)
+//   sports-autopilot --capture-test [s]  capture for s seconds, save frames to /tmp, report black/non-black
+//   sports-autopilot --listen-keys       print every remote key event (find color-button codes)
+//   sports-autopilot --send-key KEY      inject one key (LEFT/RIGHT/UP/DOWN/ENTER/BACK or a numeric code)
 #include "frame_io.h"
 #include "keys.h"
 #include "log.h"
@@ -57,7 +57,7 @@ static int captest_frame(void* data, int w, int h, uint8_t* rgb)
         t->nonblack++;
     if (t->saved < 5 && now - t->last_save_ms >= 1000) {
         char path[64];
-        snprintf(path, sizeof(path), "/tmp/nfl-autopilot-capture-%d.ppm", t->saved);
+        snprintf(path, sizeof(path), "/tmp/sports-autopilot-capture-%d.ppm", t->saved);
         if (ppm_write(path, rgb, w, h, w * 3) == 0)
             printf("saved %s (%dx%d, mean luma %.1f)\n", path, w, h, mean);
         t->saved++;
@@ -119,7 +119,7 @@ static int capture_test(int seconds)
     else if (t.nonblack == 0)
         printf("RESULT: frames are all black. Capture is probably blocked for this content (DRM) - try another backend/quirk.\n");
     else
-        printf("RESULT: capture works. Copy /tmp/nfl-autopilot-capture-*.ppm off the TV to check the picture.\n");
+        printf("RESULT: capture works. Copy /tmp/sports-autopilot-capture-*.ppm off the TV to check the picture.\n");
     return 0;
 }
 
@@ -205,7 +205,7 @@ int main(int argc, char** argv)
         }
     }
 
-    INFO("starting nfl-autopilot service");
+    INFO("starting sports-autopilot service");
     loop = g_main_loop_new(NULL, false);
     service_t* svc = calloc(1, sizeof(service_t));
     if (!svc || service_init(svc, loop) != 0) {
