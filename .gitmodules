@@ -1,0 +1,3 @@
+[submodule "third_party/tv-native-apis"]
+	path = third_party/tv-native-apis
+	url = https://github.com/webosbrew/tv-native-apis.git

@@ -1,0 +1,14 @@
+{
+  "id": "org.nflautopilot.app",
+  "version": "0.1.0",
+  "vendor": "Homebrew",
+  "type": "web",
+  "main": "index.html",
+  "title": "NFL Autopilot",
+  "appDescription": "Switches YouTube TV Multiview away from commercials",
+  "icon": "assets/icon_80.png",
+  "largeIcon": "assets/icon_130.png",
+  "iconColor": "#0b3d2e",
+  "bgColor": "#0b1410",
+  "disableBackHistoryAPI": true
+}

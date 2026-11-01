@@ -1,0 +1,28 @@
+# From hyperion-webos (MIT): builds libyuv as an external project.
+include(ExternalProject)
+
+ExternalProject_Add(
+  libyuv
+  GIT_REPOSITORY https://chromium.googlesource.com/libyuv/libyuv
+  GIT_TAG fdc71956bdade0012b0628b5011b567c06c72308
+  CMAKE_ARGS
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    -DCMAKE_C_FLAGS=${COMMON_FLAGS}
+    -DCMAKE_CXX_FLAGS=${COMMON_FLAGS}
+    -DBUILD_SHARED_LIBS=OFF
+    -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
+    -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}
+    -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+  BUILD_BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/lib/libyuv.a
+)
+
+add_library(yuv STATIC IMPORTED GLOBAL)
+
+set(LIBYUV_INCLUDE_DIRS ${CMAKE_CURRENT_BINARY_DIR}/include)
+file(MAKE_DIRECTORY ${LIBYUV_INCLUDE_DIRS})
+set_target_properties(yuv PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES      ${LIBYUV_INCLUDE_DIRS}
+    IMPORTED_LOCATION                  ${CMAKE_CURRENT_BINARY_DIR}/lib/libyuv.a
+)
+
+add_dependencies(yuv libyuv)

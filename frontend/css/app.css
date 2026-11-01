@@ -1,0 +1,28 @@
+:root { --bg: #0b1410; --panel: #13221b; --text: #e8f1ec; --muted: #8aa497; --accent: #3ccf7a; --red: #ef4b4b; --focus: #ffd34d; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: "LG Smart UI", "Museo Sans", sans-serif; }
+body { padding: 40px 64px; font-size: 24px; }
+header { display: flex; align-items: center; }
+header h1 { margin-right: 24px; }
+h1 { font-size: 48px; margin: 0 0 24px; }
+h2 { font-size: 26px; color: var(--muted); margin: 0 0 12px; text-transform: uppercase; letter-spacing: 1px; }
+/* Chromium 53 (webOS 4.5): no CSS grid, no flex gap. */
+main { display: flex; flex-wrap: wrap; justify-content: space-between; }
+.panel { background: var(--panel); border-radius: 12px; padding: 24px; width: 49%; margin-bottom: 24px; }
+.badge { padding: 6px 18px; border-radius: 999px; font-weight: bold; margin-bottom: 24px; }
+.badge.on { background: var(--accent); color: #062; }
+.badge.off { background: #333; color: #bbb; }
+.badge.paused { background: var(--focus); color: #430; }
+.keys td { padding: 6px 18px 6px 0; }
+.dot { display: inline-block; width: 22px; height: 22px; border-radius: 50%; margin-right: 10px; vertical-align: middle; }
+.dot.green { background: #2db84d; } .dot.red { background: #e33; } .dot.yellow { background: #f2c94c; } .dot.blue { background: #2f80ed; }
+.hint { color: var(--muted); }
+.tiles { display: flex; flex-wrap: wrap; margin-bottom: 16px; }
+.tile { width: 48%; margin: 1%; padding: 14px; border-radius: 8px; background: #222; text-align: center; font-weight: bold; }
+.tile.live { background: #1d5f37; } .tile.ad { background: #6b1f1f; } .tile.focus { outline: 4px solid #fff; }
+dl { margin: 0; font-size: 20px; overflow: hidden; }
+dt { color: var(--muted); float: left; clear: left; width: 210px; margin-bottom: 4px; } dd { margin: 0 0 4px 220px; }
+.actions .btn { display: block; width: 100%; margin: 0 0 12px; padding: 16px; font-size: 24px; border-radius: 8px;
+  border: 3px solid transparent; background: #24382e; color: var(--text); text-align: left; }
+.btn:focus, .btn.focused { border-color: var(--focus); outline: none; background: #2f4a3c; }
+pre { font-size: 16px; color: var(--muted); max-height: 220px; overflow: hidden; white-space: pre-wrap; }

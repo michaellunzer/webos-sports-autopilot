@@ -1,0 +1,5 @@
+build*/
+dist/
+*.ppm
+!tests/**/*.ppm
+.DS_Store
