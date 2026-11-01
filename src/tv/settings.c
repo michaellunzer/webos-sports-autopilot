@@ -19,7 +19,7 @@
 void settings_init(settings_t* s)
 {
     memset(s, 0, sizeof(*s));
-    s->autostart = true;
+    s->autostart = false; // opt-in: nothing of ours runs at boot until enabled
     s->debug_http_port = 8088;
 
     strcpy(s->video_backend, "auto");

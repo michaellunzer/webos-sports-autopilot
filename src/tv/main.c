@@ -205,6 +205,13 @@ int main(int argc, char** argv)
         }
     }
 
+    // Kill switch: `touch /media/developer/sports-autopilot/disabled` stops the
+    // service from doing anything (handy if something misbehaves at boot).
+    if (access(DATA_DIR "/disabled", F_OK) == 0) {
+        INFO("%s/disabled exists - exiting without starting", DATA_DIR);
+        return 0;
+    }
+
     INFO("starting sports-autopilot service");
     loop = g_main_loop_new(NULL, false);
     service_t* svc = calloc(1, sizeof(service_t));

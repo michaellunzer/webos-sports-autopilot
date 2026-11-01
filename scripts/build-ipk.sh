@@ -13,6 +13,16 @@ cmake --build build-tv --target sports-autopilot dile_vt_backend vtcapture_backe
 
 rm -rf dist/pkg && mkdir -p dist/pkg/app dist/pkg/service
 cp -r frontend/. dist/pkg/app/
+if [ -n "${VERSION:-}" ]; then
+  # Release builds: stamp the tag version into the packaged appinfo.json.
+  python3 - "$VERSION" <<'PY'
+import json, sys
+p = "dist/pkg/app/appinfo.json"
+info = json.load(open(p))
+info["version"] = sys.argv[1]
+json.dump(info, open(p, "w"), indent=2)
+PY
+fi
 cp build-tv/sports-autopilot build-tv/libdile_vt_backend.so build-tv/libvtcapture_backend.so dist/pkg/service/
 cp servicefiles/* dist/pkg/service/
 chmod +x dist/pkg/service/sports-autopilot dist/pkg/service/sportsautopilot-autostart

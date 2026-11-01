@@ -17,7 +17,7 @@ Everything runs **on the TV**. The service captures small video frames with the 
 
 - Every press shows a toast on screen.
 - If you use the arrows, OK or Back while autopilot is on, it **pauses for 2 minutes** so it doesn't fight you. Then it re-syncs by moving focus to the top-left tile.
-- At boot the service starts with autopilot **off**.
+- The service starts when you open the app. To have the color buttons work right after a reboot, set `autostart` to `true`. Even then, autopilot itself is always **off** after a boot.
 
 **How to use:** open a Multiview in YouTube TV and press **Green**. In full-screen mode, also start from the Multiview screen. Autopilot opens a live game, and at each commercial it presses Back, picks another live game and opens it.
 
@@ -46,6 +46,28 @@ capture (vtcapture / dile_vt, 320x180 @ 3 fps)
 | `tools/replay.c` | Run the detector over recorded frames and print a CSV timeline |
 | `tests/` | Synthetic-frame tests |
 
+## Safety, uninstall and recovery
+
+- **What it touches:** it's a normal app plus a userland service. It doesn't modify firmware, the bootloader or system partitions. It only writes:
+  - `/media/developer/sports-autopilot/` (settings and recordings)
+  - `/var/lib/webosbrew/init.d/sportsautopilot`, a boot link that exists only when `autostart` is on
+- **Kill switch:**
+  ```sh
+  touch /media/developer/sports-autopilot/disabled
+  pkill -f '[s]ports-autopilot$'
+  ```
+  The service then refuses to start. Delete the file to re-enable it.
+- **Uninstall:** remove the app from the launcher or the Homebrew Channel, then run:
+  ```sh
+  rm -rf /var/lib/webosbrew/init.d/sportsautopilot /media/developer/sports-autopilot
+  ```
+- **Recovery:** if a boot hook ever crashed the TV during startup, the Homebrew Channel's failsafe mode skips all hooks on the next boot and opens a telnet shell. Remove the link above, then delete `/var/luna/preferences/webosbrew_failsafe`.
+- **Biggest real risk:** the capture driver (the same one PicCap uses) could freeze video or reboot the TV on some firmware/quirk combinations. A reboot clears it. Try other `quirks` one at a time.
+- **Emulator:** LG's webOS TV emulator can't help here. It has no root, no Homebrew Channel, no ARM native code, no capture driver and no YouTube TV. Test in stages on the real TV instead:
+  1. SSH diagnostics (below)
+  2. The debug page with autopilot off
+  3. Green during a game
+
 ## Phase 0: check that your TV can capture YouTube TV (do this first)
 
 YouTube TV is DRM-protected, and on some firmware the capture returns black frames. Check this before anything else.
@@ -71,6 +93,16 @@ YouTube TV is DRM-protected, and on some firmware the capture returns black fram
    .../sports-autopilot --send-key RIGHT
    ```
    Focus should move to the next game. If nothing happens, try `--send-key 106` and compare against the codes from step 3.
+
+## Install from the Homebrew Channel
+
+Homebrew Channel → **Settings** → **Add repository**, then enter:
+
+```
+https://michaellunzer.github.io/webos-sports-autopilot/apps.json
+```
+
+**Sports Autopilot** then shows up in the app list. Every `v*` tag builds a release and updates this repository automatically (`.github/workflows/release.yml`).
 
 ## Build and install
 
@@ -127,7 +159,7 @@ Settings live in `/media/developer/sports-autopilot/config.json`. See `src/tv/se
 | `min_switch_interval_ms` | 20000 | Never switch more often than this |
 | `manual_pause_ms` | 120000 | Hands-off time after you use the remote |
 | `foreground_apps` | `youtube` | Comma-separated substrings of app ids where autopilot may act |
-| `autostart` | true | Start the service at boot |
+| `autostart` | false | Start the service at boot, so the color buttons work without opening the app first |
 
 ## Luna API
 
