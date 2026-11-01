@@ -102,7 +102,7 @@ Homebrew Channel → **Settings** → **Add repository**, then enter:
 https://michaellunzer.github.io/webos-sports-autopilot/apps.json
 ```
 
-**Sports Autopilot** then shows up in the app list. Every `v*` tag builds a release and updates this repository automatically (`.github/workflows/release.yml`).
+**Sports Autopilot** then shows up in the app list. To publish a new version, run the **Release** workflow from the Actions tab with a version number, or push a `v*` tag. It builds the ipk, creates the GitHub Release and updates this repository (`.github/workflows/release.yml`).
 
 ## Build and install
 
