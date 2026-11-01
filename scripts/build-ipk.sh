@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 : "${TOOLCHAIN_FILE:?set TOOLCHAIN_FILE to the buildroot-nc4 toolchainfile.cmake}"
 BUILD_TYPE="${BUILD_TYPE:-Release}"
 
-cmake -S . -B build-tv -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -DHOST_BUILD=OFF
+cmake -S . -B build-tv -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -DHOST_BUILD=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 cmake --build build-tv --target nfl-autopilot dile_vt_backend vtcapture_backend -j"$(nproc)"
 
 rm -rf dist/pkg && mkdir -p dist/pkg/app dist/pkg/service

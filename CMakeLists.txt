@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.10)
 project(webos-nfl-autopilot VERSION 0.1.0 LANGUAGES C CXX)
 
 # HOST_BUILD=ON builds only the portable core (detector + autopilot), the unit
