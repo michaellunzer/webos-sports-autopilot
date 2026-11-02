@@ -81,6 +81,7 @@ set_target_properties(sports-autopilot PROPERTIES
 # The dlopen()ed capture backends call log_printf()/getticks_us() from the
 # executable, so its symbols must be exported (-rdynamic), as in hyperion-webos.
 set_property(TARGET sports-autopilot PROPERTY ENABLE_EXPORTS 1)
+set_property(TARGET sports-autopilot APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--export-dynamic")
 target_link_libraries(sports-autopilot
     sportsap_core unicapture pthread dl rt
     ${GTHREAD2_LDFLAGS} ${PBNJSON_LDFLAGS} ${LS2_LDFLAGS} ${GLIB2_LDFLAGS} ${PMLOG_LDFLAGS})
