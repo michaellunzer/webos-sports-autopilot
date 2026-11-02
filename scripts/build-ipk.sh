@@ -9,18 +9,18 @@ cd "$(dirname "$0")/.."
 BUILD_TYPE="${BUILD_TYPE:-Release}"
 
 cmake -S . -B build-tv -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -DHOST_BUILD=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-cmake --build build-tv --target sports-autopilot -- VERBOSE=1 | grep -E "export-dynamic|rdynamic" | tail -1 || true
 cmake --build build-tv --target sports-autopilot dile_vt_backend vtcapture_backend -j"$(nproc)"
 
 # Sanity check: every symbol the backends expect from the executable must be
 # exported by it (otherwise dlopen fails on the TV with "undefined symbol").
+DYNSYMS="$(readelf --dyn-syms -W build-tv/sports-autopilot)"
 for sym in log_printf getticks_us; do
-  echo "dynamic symbol table entries for $sym:"
-  readelf --dyn-syms -W build-tv/sports-autopilot | grep -w "$sym" || echo "  (none)"
-  if ! readelf --dyn-syms -W build-tv/sports-autopilot | awk '$7 != "UND"' | grep -qw "$sym"; then
+  # Defined (Ndx != UND) entry in the executable's dynamic symbol table.
+  if ! awk -v s="$sym" '$8 == s && $7 != "UND" { found = 1 } END { exit !found }' <<<"$DYNSYMS"; then
     echo "ERROR: sports-autopilot does not export $sym (needed by capture backends)" >&2
     exit 1
   fi
+  echo "ok: $sym exported"
 done
 
 rm -rf dist/pkg && mkdir -p dist/pkg/app dist/pkg/service
