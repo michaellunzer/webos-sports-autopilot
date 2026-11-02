@@ -54,7 +54,7 @@ capture (vtcapture / dile_vt, 320x180 @ 3 fps)
 - **Kill switch:**
   ```sh
   touch /media/developer/sports-autopilot/disabled
-  pkill -f '[s]ports-autopilot$'
+  pkill -x sportsap
   ```
   The service then refuses to start. Delete the file to re-enable it.
 - **Uninstall:** remove the app from the launcher or the Homebrew Channel, then run:
@@ -75,7 +75,7 @@ YouTube TV is DRM-protected, and on some firmware the capture returns black fram
 1. Install the ipk (see below). Open **Sports Autopilot** and press **Grant root** once.
 2. Start YouTube TV Multiview with live games, then SSH into the TV (`ssh root@<tv-ip>`) and run:
    ```sh
-   /media/developer/apps/usr/palm/services/org.sportsautopilot.app.service/sports-autopilot --capture-test 10
+   /media/developer/apps/usr/palm/services/org.sportsautopilot.app.service/sportsap --capture-test 10
    ```
    The last line is the verdict: `capture works`, `all black` or `no frames`. Copy `/tmp/sports-autopilot-capture-*.ppm` to a PC and open them to see what was captured.
    - If frames are black, try the other backend or a quirk in `/media/developer/sports-autopilot/config.json`, then rerun:
@@ -84,13 +84,13 @@ YouTube TV is DRM-protected, and on some firmware the capture returns black fram
      - `"quirks": 256` (vtcapture)
 3. Find your color-button codes:
    ```sh
-   .../sports-autopilot --listen-keys
+   .../sportsap --listen-keys
    ```
    Press Red, Green, Yellow, Blue, the arrows, OK and Back. The defaults are Linux `KEY_RED=398`, `KEY_GREEN=399`, `KEY_YELLOW=400`, `KEY_BLUE=401`, arrows `105/106/103/108`, `ENTER=28`, `BACK=158`. If your remote differs, set `key_*` in the config.
    - The UM7300's basic IR remote has color buttons. A Magic Remote only offers them in the on-screen "…" menu.
 4. Check that injected keys reach YouTube TV. With Multiview on screen, run:
    ```sh
-   .../sports-autopilot --send-key RIGHT
+   .../sportsap --send-key RIGHT
    ```
    Focus should move to the next game. If nothing happens, try `--send-key 106` and compare against the codes from step 3.
 

@@ -1,9 +1,9 @@
-// sports-autopilot: on-TV service plus a few command-line diagnostics.
+// sportsap (Sports Autopilot): on-TV service plus a few command-line diagnostics.
 //
-//   sports-autopilot                     run as luna service (normal mode)
-//   sports-autopilot --capture-test [s]  capture for s seconds, save frames to /tmp, report black/non-black
-//   sports-autopilot --listen-keys       print every remote key event (find color-button codes)
-//   sports-autopilot --send-key KEY      inject one key (LEFT/RIGHT/UP/DOWN/ENTER/BACK or a numeric code)
+//   sportsap                     run as luna service (normal mode)
+//   sportsap --capture-test [s]  capture for s seconds, save frames to /tmp, report black/non-black
+//   sportsap --listen-keys       print every remote key event (find color-button codes)
+//   sportsap --send-key KEY      inject one key (LEFT/RIGHT/UP/DOWN/ENTER/BACK or a numeric code)
 #include "frame_io.h"
 #include "keys.h"
 #include "log.h"
@@ -35,6 +35,7 @@ static void on_signal(int sig __attribute__((unused)))
 // --- --capture-test -------------------------------------------------------
 
 typedef struct {
+    int empty;
     int frames;
     int saved;
     double luma_sum;
@@ -45,6 +46,11 @@ typedef struct {
 static int captest_frame(void* data, int w, int h, uint8_t* rgb)
 {
     captest_t* t = data;
+    if (!rgb || w <= 0 || h <= 0) {
+        // unicapture calls back even when no frame was captured.
+        t->empty++;
+        return 0;
+    }
     uint64_t now = getticks_us() / 1000;
     double sum = 0;
     size_t n = (size_t)w * h;
@@ -116,14 +122,16 @@ static int capture_test(int seconds)
     unicapture_stop(&u);
     backend.cleanup(backend.state);
 
-    printf("frames: %d, non-black: %d, average luma: %.1f\n", t.frames, t.nonblack, t.frames ? t.luma_sum / t.frames : 0);
+    printf("frames: %d, non-black: %d, average luma: %.1f (empty callbacks: %d)\n", t.frames, t.nonblack,
+        t.frames ? t.luma_sum / t.frames : 0, t.empty);
     if (t.frames == 0)
-        printf("RESULT: no frames captured. Try another backend/quirk (see README).\n");
+        printf("RESULT: capture never started (no frames). Reboot the TV and retry; if it persists try \"fps\": 30 in the config.\n");
     else if (t.nonblack == 0)
         printf("RESULT: frames are all black. Capture is probably blocked for this content (DRM) - try another backend/quirk.\n");
     else
         printf("RESULT: capture works. Copy /tmp/sports-autopilot-capture-*.ppm off the TV to check the picture.\n");
-    return 0;
+    fflush(stdout);
+    _exit(0); // skip LG library destructors (they assert on exit)
 }
 
 // --- --listen-keys --------------------------------------------------------

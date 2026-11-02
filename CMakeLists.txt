@@ -57,7 +57,9 @@ pkg_check_modules(PMLOG REQUIRED PmLogLib)
 
 add_subdirectory(third_party/unicapture)
 
-add_executable(sports-autopilot
+# Keep the executable name short (<= 15 chars, the kernel's process-name
+# limit): LG's libdile_vt refuses DILE_VT_Create() for longer names.
+add_executable(sportsap
     src/tv/main.c
     src/tv/service.c
     src/tv/settings.c
@@ -67,21 +69,21 @@ add_executable(sports-autopilot
     src/tv/debug_http.c
     src/tv/recorder.c
 )
-target_include_directories(sports-autopilot PRIVATE
+target_include_directories(sportsap PRIVATE
     src/tv
     ${GLIB2_INCLUDE_DIRS} ${GTHREAD2_INCLUDE_DIRS} ${PBNJSON_INCLUDE_DIRS}
     ${LS2_INCLUDE_DIRS} ${PMLOG_INCLUDE_DIRS})
-target_compile_options(sports-autopilot PRIVATE -Wall -Wextra)
-target_compile_definitions(sports-autopilot PRIVATE SPORTSAP_VERSION="${PROJECT_VERSION}")
-set_target_properties(sports-autopilot PROPERTIES
+target_compile_options(sportsap PRIVATE -Wall -Wextra)
+target_compile_definitions(sportsap PRIVATE SPORTSAP_VERSION="${PROJECT_VERSION}")
+set_target_properties(sportsap PROPERTIES
     BUILD_RPATH_USE_ORIGIN ON
     INSTALL_RPATH "$ORIGIN:$ORIGIN/lib"
     BUILD_RPATH "$ORIGIN:$ORIGIN/lib"
 )
 # The dlopen()ed capture backends call log_printf()/getticks_us() from the
 # executable, so its symbols must be exported (-rdynamic), as in hyperion-webos.
-set_property(TARGET sports-autopilot PROPERTY ENABLE_EXPORTS 1)
-set_property(TARGET sports-autopilot APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--export-dynamic")
-target_link_libraries(sports-autopilot
+set_property(TARGET sportsap PROPERTY ENABLE_EXPORTS 1)
+set_property(TARGET sportsap APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--export-dynamic")
+target_link_libraries(sportsap
     sportsap_core unicapture pthread dl rt
     ${GTHREAD2_LDFLAGS} ${PBNJSON_LDFLAGS} ${LS2_LDFLAGS} ${GLIB2_LDFLAGS} ${PMLOG_LDFLAGS})

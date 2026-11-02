@@ -2,7 +2,7 @@
   "id": "org.sportsautopilot.app.service",
   "description": "Sports Autopilot native service",
   "engine": "native",
-  "executable": "sports-autopilot",
+  "executable": "sportsap",
   "services": [{
     "name": "org.sportsautopilot.app.service",
     "description": "Sports Autopilot native service"

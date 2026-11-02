@@ -83,7 +83,7 @@
     elevate: function () {
       log('elevating service via Homebrew Channel...');
       return luna(HBCHANNEL + '/exec', {
-        command: ELEVATE + ' org.sportsautopilot.app.service; pkill -f \'[s]ports-autopilot$\'; true'
+        command: ELEVATE + ' org.sportsautopilot.app.service; pkill -x sportsap; true'
       });
     }
   };
