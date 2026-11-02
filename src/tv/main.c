@@ -93,7 +93,10 @@ static int capture_test(int seconds)
     }
     if (ret != 0) {
         printf("RESULT: no capture backend could be initialized (run as root?)\n");
-        return 1;
+        fflush(stdout);
+        // Skip library destructors: LG's libdile_vt asserts in its exit
+        // handler when its context was never created ("osal_MutexLock ... Aborted").
+        _exit(1);
     }
     printf("backend: %s; capturing for %d s - play YouTube TV Multiview now\n", backend.name, seconds);
 
