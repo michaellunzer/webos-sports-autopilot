@@ -191,7 +191,7 @@ static void* poll_thread(void* arg)
         pthread_mutex_lock(e->lock);
         interval = e->settings->poll_interval_s;
         for (int i = 0; i < ESPN_MAX_GAMES; i++) {
-            char label[40];
+            char label[sizeof(e->games[0].label)];
             csv_item(e->settings->tile_events, i, events[i], sizeof(events[i]));
             csv_item(e->settings->tile_labels, i, label, sizeof(label));
             if (strcmp(e->games[i].event_id, events[i]) != 0) {
