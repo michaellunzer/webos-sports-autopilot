@@ -2,9 +2,14 @@
 
 A Homebrew Channel app and native service for a **rooted LG TV** (built for the 55UM7300PUA, webOS 4.5). It watches **YouTube TV Multiview** and moves the audio/focus to another game whenever the current one cuts to a commercial. A second mode keeps one game **full screen** and hops to a live game at each break.
 
-Everything runs **on the TV**. The service captures small video frames with the same capture backends as [PicCap / hyperion-webos](https://github.com/webosbrew/hyperion-webos). It finds commercials by looking for the score bug and presses remote keys through a virtual input device.
+Everything runs **on the TV**. The service follows each game's live play-by-play (ESPN's public feed) to work out when a game is in a commercial break. It presses remote buttons through the TV's own remote-control server, the same one LG's phone app and Home Assistant use.
 
-> Status: **v0.1, untested on real hardware.** The detector and state machine pass unit tests on synthetic frames. The thresholds still need tuning on real games (see [Tuning](#tuning-with-real-games)).
+> Status: **v0.2, partly tested on a 55UM7300PUA.** On that TV:
+> - the color buttons are received
+> - key presses through the remote-control server reach YouTube TV
+> - **video capture and audio are blocked while YouTube TV plays (DRM)**, which is why v0.2 switched to game data
+>
+> The break predictor is tuned on 13 real games but hasn't been used live yet.
 
 ## Remote buttons
 
@@ -19,32 +24,42 @@ Everything runs **on the TV**. The service captures small video frames with the 
 - If you use the arrows, OK or Back while autopilot is on, it **pauses for 2 minutes** so it doesn't fight you. Then it re-syncs by moving focus to the top-left tile.
 - The service starts when you open the app. To have the color buttons work right after a reboot, set `autostart` to `true`. Even then, autopilot itself is always **off** after a boot.
 
-**How to use:** open a Multiview in YouTube TV and press **Green**. In full-screen mode, also start from the Multiview screen. Autopilot opens a live game, and at each commercial it presses Back, picks another live game and opens it.
+**How to use:**
+1. Open a Multiview in YouTube TV.
+2. Open **Sports Autopilot** and, under *Games in Multiview*, set each tile to the game YouTube TV shows there. Press OK on a tile to cycle through today's games.
+3. Go back to YouTube TV and press **Green**.
+
+The first time autopilot presses a button, the TV asks you to **Allow** it. Accept, and it won't ask again.
+
+In full-screen mode, also start from the Multiview screen. Autopilot opens a live game, and at each commercial it presses Back, picks another live game and opens it.
+
+**Stream delay:** YouTube TV runs behind the live game, typically 30–60 s. If autopilot switches before the commercial starts on your screen, raise *Stream delay* in the app. If it switches late, lower it. The default is 45 s.
 
 ## How it works
 
 ```
-capture (vtcapture / dile_vt, 320x180 @ 3 fps)
-   -> detector: split into 4 tiles (or 1 when full screen)
-        per pixel: "still + high-contrast" persistence (score bugs are static while the field moves)
-        score = static pixels in top/bottom bands - static pixels in the rest of the picture
-        black frames reset the history; hysteresis (2 s to LIVE, 4 s to AD)
-   -> autopilot state machine: focused game AD -> move to the live game that most
-        recently came back from break (20 s minimum between switches)
-   -> key queue -> /dev/uinput virtual remote (LEFT/RIGHT/UP/DOWN/ENTER/BACK)
+ESPN play-by-play (each assigned game, every 5 s)
+   -> break predictor, evaluated at "viewer time" = now - stream delay:
+        Official Timeout / Two-minute warning / End of quarter / half  -> commercial
+        no new play for 75 s (40 s after a score, timeout, punt, turnover or kickoff) -> commercial
+        next snap less than 20 s away                                  -> live again
+   -> autopilot state machine: focused game at commercial -> move to the live game that
+        most recently came back from break (20 s minimum between switches)
+   -> key queue -> TV remote-control server (SSAP, ws://127.0.0.1:3000) -> LEFT/RIGHT/UP/DOWN/ENTER/BACK
 ```
 
-- Autopilot only acts while a `youtube` app is in the foreground, and it stops capturing when the screen is off.
-- YouTube TV builds Multiview on its servers, so the TV decodes a single stream and one captured frame shows all four games.
+- On 13 games from 2026-11-01, this flags about 92% of commercial-break time, and about 87% of what it flags is a real break. The rest is mostly reviews and injury stoppages.
+- Autopilot only acts while YouTube TV (`youtube.leanback.ytv.v1`) is in the foreground.
+- **Why not look at the picture?** That was v0.1's approach: find the score bug in captured frames. The code is still here, with `"detection": "video"`, and works for unprotected video. But webOS 4.x refuses video capture during YouTube TV playback, and its audio bypasses the recordable path. The picture-based detector is kept for a future external-capture box (an HDMI capture card in front of a streaming stick).
 
 | Path | What |
 |---|---|
-| `src/core/` | Portable detector, autopilot and frame I/O (unit-tested on a PC) |
-| `src/tv/` | webOS service: luna API, capture, remote listener, virtual remote, debug page, recorder |
+| `src/core/` | Portable break predictor, picture detector, autopilot and frame I/O (unit-tested on a PC) |
+| `src/tv/` | webOS service: luna API, ESPN poller, SSAP key sender, remote listener, capture, debug page |
 | `third_party/unicapture/` | Capture layer and video backends copied from hyperion-webos (MIT) |
 | `frontend/` | The app in the Homebrew Channel launcher (status, on/off, mode, record, grant root) |
 | `tools/replay.c` | Run the detector over recorded frames and print a CSV timeline |
-| `tests/` | Synthetic-frame tests |
+| `tests/` | Predictor replay on a real game, autopilot logic, picture-detector tests, SSAP client against a fake TV server |
 
 ## Safety, uninstall and recovery
 
@@ -68,7 +83,7 @@ capture (vtcapture / dile_vt, 320x180 @ 3 fps)
   2. The debug page with autopilot off
   3. Green during a game
 
-## Phase 0: check that your TV can capture YouTube TV (do this first)
+## Diagnostics (picture capture; not needed for game-data mode)
 
 YouTube TV is DRM-protected, and on some firmware the capture returns black frames. Check this before anything else.
 
@@ -135,31 +150,26 @@ While capture runs, open `http://<tv-ip>:8088/` on a phone or PC. It shows:
 
 Opening the page keeps capture running for 60 s even when autopilot is off. Set `"debug_http_port": 0` to turn the page off. It serves your TV picture to your LAN.
 
-## Tuning with real games
+## Settings
 
-1. During a game window, press **Start recording** in the app, or call:
-   ```sh
-   luna-send -n 1 luna://org.sportsautopilot.app.service/record '{"start":true}'
-   ```
-   Frames are saved at 1 fps to `/media/developer/sports-autopilot/rec/<timestamp>/`, up to 1800 frames (about 300 MB), along with a `labels.csv` of what the detector decided.
-2. Copy the folder to a PC and replay it with different parameters:
-   ```bash
-   build-host/replay --param live_score_on=0.03 --param ad_hold_ms=5000 rec/20261102-131500 > timeline.csv
-   ```
-3. Put the values that work into the config, either through the `setSettings` luna method or by editing `config.json` and restarting the service.
-
-Settings live in `/media/developer/sports-autopilot/config.json`. See `src/tv/settings.c` for every key and its default. Notable ones:
+Settings live in `/media/developer/sports-autopilot/config.json`. Change them through the app, the `setSettings` luna method, or by editing the file and restarting the service. See `src/tv/settings.c` for every key and its default. Notable ones:
 
 | Key | Default | Meaning |
 |---|---|---|
-| `live_score_on` / `live_score_off` | 0.025 / 0.010 | Score thresholds for LIVE / AD evidence |
-| `live_hold_ms` / `ad_hold_ms` | 2000 / 4000 | Hysteresis |
-| `band_top` / `band_bottom` | 0.22 / 0.25 | Where score bugs are searched (fraction of tile height) |
-| `mv_inset_*`, `mv_gutter` | 0 | Multiview tile geometry, if the grid doesn't fill the screen |
+| `tile_events` / `tile_labels` | empty | ESPN event ids and names of the games in tiles 1–4 (set by the app) |
+| `stream_delay_s` | 45 | How far YouTube TV runs behind the live game |
+| `idle_break_s` / `trigger_idle_s` | 75 / 40 | Seconds without a new play that mean a commercial (the second value applies after a score, timeout, punt, turnover or kickoff) |
+| `resume_lead_s` | 20 | Treat a game as live again this long before the next snap |
+| `poll_interval_s` | 5 | How often ESPN is polled |
+| `detection` | `gamedata` | `gamedata`, or `video` (picture-based; blocked by DRM for YouTube TV on webOS 4.x) |
+| `use_uinput` | false | Press keys with a virtual input device instead of the TV's remote-control server. YouTube TV ignores the virtual device on webOS 4.5. |
 | `min_switch_interval_ms` | 20000 | Never switch more often than this |
 | `manual_pause_ms` | 120000 | Hands-off time after you use the remote |
-| `foreground_apps` | `youtube` | Comma-separated substrings of app ids where autopilot may act |
+| `key_back` | 412 | Linux code of the remote's Back key, used to spot manual use |
+| `foreground_apps` | `ytv` | Comma-separated substrings of app ids where autopilot may act |
 | `autostart` | false | Start the service at boot, so the color buttons work without opening the app first |
+
+To re-tune the predictor offline, export a game's play-by-play like `tests/data/bal-buf-2026-11-01.csv` and run `build-host/test_predictor <file.csv>`. It prints recall and precision against approximate break times.
 
 ## Luna API
 
@@ -178,15 +188,13 @@ All methods are on `luna://org.sportsautopilot.app.service/`:
 
 ## Known unknowns and roadmap
 
-These have to be confirmed on the real TV and app. All of them are configurable:
-- whether the capture works with DRM (Phase 0)
-- the key codes for the color buttons
-- whether YouTube TV moves Multiview focus with the arrow keys and keeps focus on the same game after Back
-- the exact grid geometry
+These still need confirming on the real TV:
+- whether YouTube TV keeps Multiview focus on the same game after Back (affects full-screen mode)
+- typical stream delay, so the default can be tuned
+- whether the ESPN feed's lag stays below the stream delay during busy Sunday windows
 
 Roadmap:
-- **Learned score-bug mask:** remember where each game's bug sits so the detector reacts faster and ignores static logos in ads.
-- **Multiview vs. full-screen screen detection:** look for grid gutters so the autopilot can re-sync after manual use.
-- A small classifier trained on recorded frames.
+- **Stage 2, external capture box:** run the picture-based detector (`src/core/detector.c`) on a small computer with an HDMI capture card, and send results to the TV.
+- **Automatic tile assignment:** read YouTube TV's Multiview line-up instead of picking the games in the app.
 - **"Home game" preference:** return to your main game when it comes back from break.
-- An SSAP (`ws://localhost:3000`) key fallback in case uinput keys aren't accepted.
+- **Stream-delay auto-calibration.**

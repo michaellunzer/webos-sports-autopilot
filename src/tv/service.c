@@ -51,6 +51,20 @@ static void detector_params_from_settings(const settings_t* s, detector_params_t
     p->persist_on = (float)s->persist_on;
 }
 
+static bool video_mode(const settings_t* s)
+{
+    return strcmp(s->detection, "video") == 0;
+}
+
+static void pred_params_from_settings(const settings_t* s, pred_params_t* p)
+{
+    pred_default_params(p);
+    p->stream_delay_s = s->stream_delay_s;
+    p->idle_break_s = s->idle_break_s;
+    p->trigger_idle_s = s->trigger_idle_s;
+    p->resume_lead_s = s->resume_lead_s;
+}
+
 static void ap_params_from_settings(const settings_t* s, ap_params_t* p)
 {
     ap_default_params(p);
@@ -60,6 +74,8 @@ static void ap_params_from_settings(const settings_t* s, ap_params_t* p)
     p->manual_pause_ms = s->manual_pause_ms;
     p->scan_settle_ms = s->scan_settle_ms;
     p->reset_focus_on_start = s->reset_focus_on_start;
+    if (!video_mode(s))
+        p->scan_settle_ms = 1500; // game data needs no picture warm-up
 }
 
 // Lock held.
@@ -125,6 +141,7 @@ static void open_vremote(service_t* svc)
 {
     if (svc->vremote_fd >= 0) {
         vremote_close(svc->vremote_fd);
+    ssap_close(&svc->ssap);
         svc->vremote_fd = -1;
     }
     if (!svc->settings.use_uinput)
@@ -141,12 +158,12 @@ static void open_vremote(service_t* svc)
     INFO("virtual remote ready");
 }
 
-static void enqueue_key(service_t* svc, int code)
+static void enqueue_key(service_t* svc, ap_key_t key)
 {
     pthread_mutex_lock(&svc->kq_lock);
     int next = (svc->kq_tail + 1) % KEYQ_LEN;
     if (next != svc->kq_head) {
-        svc->kq[svc->kq_tail] = code;
+        svc->kq[svc->kq_tail] = (int)key;
         svc->kq_tail = next;
         pthread_cond_signal(&svc->kq_cond);
     }
@@ -162,18 +179,28 @@ static void* key_thread(void* arg)
             pthread_cond_wait(&svc->kq_cond, &svc->kq_lock);
             continue;
         }
-        int code = svc->kq[svc->kq_head];
+        ap_key_t key = (ap_key_t)svc->kq[svc->kq_head];
         svc->kq_head = (svc->kq_head + 1) % KEYQ_LEN;
         int fd = svc->vremote_fd;
         int delay = svc->settings.key_delay_ms;
+        bool uinput = svc->settings.use_uinput;
+        int code = key_code(&svc->settings, key);
+        svc->last_injected_ms = now_ms();
         pthread_mutex_unlock(&svc->kq_lock);
 
-        INFO("press key %d", code);
-        if (fd < 0 || vremote_press(fd, code) != 0)
-            WARN("key %d not sent (virtual remote unavailable)", code);
+        int r;
+        if (uinput) {
+            r = fd >= 0 ? vremote_press(fd, code) : -1;
+        } else {
+            if (!ssap_has_key(&svc->ssap))
+                luna_toast("Sports Autopilot wants to control the TV - select Allow on the prompt");
+            r = ssap_button(&svc->ssap, ap_key_name(key));
+        }
+        INFO("press %s via %s: %s", ap_key_name(key), uinput ? "uinput" : "ssap", r == 0 ? "ok" : "FAILED");
         usleep((useconds_t)delay * 1000);
 
         pthread_mutex_lock(&svc->kq_lock);
+        svc->last_injected_ms = now_ms();
     }
     pthread_mutex_unlock(&svc->kq_lock);
     return NULL;
@@ -185,7 +212,7 @@ static void apply_action(service_t* svc, const ap_action_t* a)
     if (a->set_layout_tiles >= 0)
         set_layout(svc, a->set_layout_tiles);
     for (int i = 0; i < a->nkeys; i++)
-        enqueue_key(svc, key_code(&svc->settings, a->keys[i]));
+        enqueue_key(svc, a->keys[i]);
     if (a->reason)
         INFO("autopilot: %s%s%s (keys: %d)", a->reason, a->message[0] ? " - " : "", a->message, a->nkeys);
     if (a->message[0])
@@ -208,6 +235,17 @@ static void status_text(service_t* svc, char* buf, size_t n)
         svc->ap.mode == AP_MODE_FULLSCREEN ? "Full screen" : "Multiview");
     if (svc->ap.phase == AP_PHASE_PAUSED)
         len += snprintf(buf + len, n - len, " (paused)");
+    if (!video_mode(&svc->settings)) {
+        for (int i = 0; i < ESPN_MAX_GAMES && len < (int)n; i++) {
+            if (!svc->games[i].event_id[0])
+                continue;
+            len += snprintf(buf + len, n - len, " | G%d %s %s", i + 1,
+                svc->games[i].label[0] ? svc->games[i].label : "?", state_short(svc->game_results[i].state));
+        }
+        if (svc->settings.tile_events[0] == 0)
+            snprintf(buf + len, n - len, " - no games assigned (open the app)");
+        return;
+    }
     if (!svc->capture_running) {
         snprintf(buf + len, n - len, " - capture off");
         return;
@@ -264,6 +302,28 @@ static jvalue_ref status_obj(service_t* svc)
         luma += t->mean_luma;
     }
     jobject_set(o, j_cstr_to_buffer("tiles"), tiles);
+
+    jobject_set(o, j_cstr_to_buffer("detection"), jstring_create(svc->settings.detection));
+    jobject_set(o, j_cstr_to_buffer("keyMethod"), jstring_create(svc->settings.use_uinput ? "uinput" : "ssap"));
+    jobject_set(o, j_cstr_to_buffer("remotePaired"), jboolean_create(ssap_has_key(&svc->ssap)));
+    jobject_set(o, j_cstr_to_buffer("streamDelay"), jnumber_create_i32(svc->settings.stream_delay_s));
+    jobject_set(o, j_cstr_to_buffer("dataError"), jstring_create(svc->espn.last_error));
+    jobject_set(o, j_cstr_to_buffer("dataAgeS"),
+        jnumber_create_i32(svc->espn.last_ok_ms ? (int)((realtime_ms() - svc->espn.last_ok_ms) / 1000) : -1));
+    jvalue_ref games = jarray_create(NULL);
+    for (int i = 0; i < ESPN_MAX_GAMES; i++) {
+        const pred_game_t* g = &svc->games[i];
+        const pred_result_t* r = &svc->game_results[i];
+        jvalue_ref go = jobject_create();
+        jobject_set(go, j_cstr_to_buffer("event"), jstring_create(g->event_id));
+        jobject_set(go, j_cstr_to_buffer("label"), jstring_create(g->label));
+        jobject_set(go, j_cstr_to_buffer("state"), jstring_create(g->event_id[0] ? tile_state_name(r->state) : "none"));
+        jobject_set(go, j_cstr_to_buffer("gapS"), jnumber_create_i32(r->gap_s));
+        jobject_set(go, j_cstr_to_buffer("lastPlay"), jstring_create(r->last ? r->last->type : ""));
+        jobject_set(go, j_cstr_to_buffer("plays"), jnumber_create_i32(g->nplays));
+        jarray_append(games, go);
+    }
+    jobject_set(o, j_cstr_to_buffer("games"), games);
     // ~0 for a long time while video plays means capture returns black (DRM).
     jobject_set(o, j_cstr_to_buffer("frameMeanLuma"), jnumber_create_f64(svc->det.ntiles ? luma / svc->det.ntiles : 0));
     return o;
@@ -367,10 +427,12 @@ static int on_frame(void* data, int width, int height, uint8_t* rgb)
         recorder_frame(&svc->rec, rgb, width, height, now, line);
     }
 
-    ap_action_t a;
-    ap_action_clear(&a);
-    ap_tick(&svc->ap, tiles, svc->det.ntiles, now, &a);
-    apply_action(svc, &a);
+    if (video_mode(&svc->settings)) {
+        ap_action_t a;
+        ap_action_clear(&a);
+        ap_tick(&svc->ap, tiles, svc->det.ntiles, now, &a);
+        apply_action(svc, &a);
+    }
     pthread_mutex_unlock(&svc->lock);
     return 0;
 }
@@ -450,7 +512,8 @@ static void update_capture(service_t* svc)
 {
     pthread_mutex_lock(&svc->lock);
     uint64_t now = now_ms();
-    bool need = (svc->ap.enabled || svc->rec.active || now < svc->preview_until_ms) && !svc->power_paused;
+    bool need = ((svc->ap.enabled && video_mode(&svc->settings)) || svc->rec.active || now < svc->preview_until_ms)
+        && !svc->power_paused;
     bool running = svc->capture_running;
     pthread_mutex_unlock(&svc->lock);
 
@@ -463,6 +526,44 @@ static void update_capture(service_t* svc)
 static gboolean housekeeping(gpointer data)
 {
     update_capture((service_t*)data);
+    return G_SOURCE_CONTINUE;
+}
+
+// Once a second: evaluate the break predictor for each tile and drive the
+// autopilot from it (game-data mode).
+static gboolean gamedata_tick(gpointer data)
+{
+    service_t* svc = data;
+    pthread_mutex_lock(&svc->lock);
+    pred_params_t pp;
+    pred_params_from_settings(&svc->settings, &pp);
+    int64_t rt = realtime_ms();
+    for (int i = 0; i < ESPN_MAX_GAMES; i++)
+        svc->game_results[i] = pred_evaluate(&svc->games[i], &pp, rt);
+
+    if (!video_mode(&svc->settings) && svc->ap.enabled) {
+        // Express "since" on the monotonic clock the autopilot uses.
+        uint64_t now = now_ms();
+        ap_tile_t tiles[ESPN_MAX_GAMES];
+        int n = ap_expected_tiles(&svc->ap);
+        for (int i = 0; i < n && i < ESPN_MAX_GAMES; i++) {
+            int gi = n == 1 ? svc->ap.fs_tile : i;
+            if (gi < 0 || gi >= ESPN_MAX_GAMES || !svc->games[gi].event_id[0]) {
+                tiles[i].state = TILE_UNKNOWN;
+                tiles[i].state_since_ms = 0;
+                continue;
+            }
+            const pred_result_t* r = &svc->game_results[gi];
+            tiles[i].state = r->state;
+            int64_t ago = rt - r->since_ms;
+            tiles[i].state_since_ms = ago > 0 && (uint64_t)ago < now ? now - (uint64_t)ago : now;
+        }
+        ap_action_t a;
+        ap_action_clear(&a);
+        ap_tick(&svc->ap, tiles, n, now, &a);
+        apply_action(svc, &a);
+    }
+    pthread_mutex_unlock(&svc->lock);
     return G_SOURCE_CONTINUE;
 }
 
@@ -480,6 +581,16 @@ static bool is_nav_key(const settings_t* s, int code)
 {
     return code == s->key_left || code == s->key_right || code == s->key_up || code == s->key_down
         || code == s->key_enter || code == s->key_back;
+}
+
+// Keys we press through the TV may show up on an input device too; don't
+// mistake them for the user taking over.
+static bool recently_injected(service_t* svc)
+{
+    pthread_mutex_lock(&svc->kq_lock);
+    bool busy = svc->kq_head != svc->kq_tail || now_ms() - svc->last_injected_ms < 1500;
+    pthread_mutex_unlock(&svc->kq_lock);
+    return busy;
 }
 
 static void on_remote_key(void* data, int code, int value, const char* device)
@@ -515,7 +626,7 @@ static void on_remote_key(void* data, int code, int value, const char* device)
         snprintf(msg, sizeof(msg), "Autopilot mode: %s", m == AP_MODE_FULLSCREEN ? "Full screen" : "Multiview");
     } else if (code == s->key_status) {
         status_text(svc, msg, sizeof(msg));
-    } else if (is_nav_key(s, code) && svc->ap.enabled) {
+    } else if (is_nav_key(s, code) && svc->ap.enabled && !recently_injected(svc)) {
         bool was_paused = svc->ap.phase == AP_PHASE_PAUSED;
         ap_manual_input(&svc->ap, now);
         if (!was_paused)
@@ -743,17 +854,17 @@ static bool m_send_key(LSHandle* sh, LSMessage* msg, void* data)
     char name[16] = { 0 };
     bool ok = get_str(parsed, "key", name, sizeof(name));
     j_release(&parsed);
-    int code = 0;
+    int key = -1;
     for (int k = 0; ok && k < AP_KEY_COUNT; k++) {
         if (strcasecmp(name, ap_key_name((ap_key_t)k)) == 0)
-            code = key_code(&svc->settings, (ap_key_t)k);
+            key = k;
     }
-    if (!code) {
+    if (key < 0) {
         reply_simple(sh, msg, false, "key must be LEFT, RIGHT, UP, DOWN, ENTER or BACK");
         return true;
     }
-    enqueue_key(svc, code);
-    reply_simple(sh, msg, svc->vremote_fd >= 0, svc->vremote_fd >= 0 ? NULL : "virtual remote unavailable");
+    enqueue_key(svc, (ap_key_t)key);
+    reply_simple(sh, msg, true, NULL);
     return true;
 }
 
@@ -844,6 +955,8 @@ int service_init(service_t* svc, GMainLoop* loop)
     if (rebuild_detector(svc) != 0)
         return -1;
 
+    mkdir(DATA_DIR, 0755);
+    ssap_init(&svc->ssap, DATA_DIR "/ssap-key");
     open_vremote(svc);
     svc->key_thread_running = true;
     pthread_create(&svc->key_thread, NULL, key_thread, svc);
@@ -855,8 +968,14 @@ int service_init(service_t* svc, GMainLoop* loop)
     svc->http.data = svc;
     debug_http_start(&svc->http, svc->settings.debug_http_port);
 
+    svc->espn.lock = &svc->lock;
+    svc->espn.games = svc->games;
+    svc->espn.settings = &svc->settings;
+    espn_start(&svc->espn);
+
     update_autostart(&svc->settings);
     g_timeout_add(500, housekeeping, svc);
+    g_timeout_add(1000, gamedata_tick, svc);
     return 0;
 }
 
@@ -910,6 +1029,7 @@ int service_register(service_t* svc)
 
 void service_destroy(service_t* svc)
 {
+    espn_stop(&svc->espn);
     remote_listen_stop(&svc->listener);
     debug_http_stop(&svc->http);
     stop_capture(svc);

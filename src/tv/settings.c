@@ -28,7 +28,16 @@ void settings_init(settings_t* s)
     s->capture_height = 180;
     s->fps = 3;
 
-    strcpy(s->foreground_apps, "youtube");
+    strcpy(s->foreground_apps, "ytv");
+
+    strcpy(s->detection, "gamedata");
+    s->tile_events[0] = 0;
+    s->tile_labels[0] = 0;
+    s->stream_delay_s = 45;
+    s->idle_break_s = 75;
+    s->trigger_idle_s = 40;
+    s->resume_lead_s = 20;
+    s->poll_interval_s = 5;
 
     s->mode = 0;
     s->grid_cols = 2;
@@ -65,9 +74,9 @@ void settings_init(settings_t* s)
     s->key_up = KEY_UP;
     s->key_down = KEY_DOWN;
     s->key_enter = KEY_ENTER;
-    s->key_back = KEY_BACK;
+    s->key_back = 412; // LG Magic Remote "Back" (KEY_PREVIOUS)
     s->key_delay_ms = 400;
-    s->use_uinput = true;
+    s->use_uinput = false;
 
     snprintf(s->record_dir, sizeof(s->record_dir), "%s/rec", DATA_DIR);
     s->record_interval_ms = 1000;
@@ -91,6 +100,8 @@ static const field_t fields[] = {
     FB(autostart), FI(debug_http_port),
     FS(video_backend), FI(quirks), FI(capture_width), FI(capture_height), FI(fps),
     FS(foreground_apps),
+    FS(detection), FS(tile_events), FS(tile_labels), FI(stream_delay_s), FI(idle_break_s),
+    FI(trigger_idle_s), FI(resume_lead_s), FI(poll_interval_s),
     FI(mode), FI(grid_cols), FI(grid_rows), FI(min_switch_interval_ms), FI(manual_pause_ms),
     FI(scan_settle_ms), FB(reset_focus_on_start),
     FD(mv_inset_left), FD(mv_inset_top), FD(mv_inset_right), FD(mv_inset_bottom), FD(mv_gutter),
@@ -147,6 +158,10 @@ int settings_load_json(settings_t* s, void* obj)
         s->grid_rows = 2;
     if (s->mode != 0 && s->mode != 1)
         s->mode = 0;
+    if (s->poll_interval_s < 2)
+        s->poll_interval_s = 2;
+    if (s->stream_delay_s < 0)
+        s->stream_delay_s = 0;
     return 0;
 }
 

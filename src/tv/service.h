@@ -3,9 +3,12 @@
 #include "autopilot.h"
 #include "debug_http.h"
 #include "detector.h"
+#include "espn.h"
+#include "predictor.h"
 #include "recorder.h"
 #include "remote_listen.h"
 #include "settings.h"
+#include "ssap.h"
 #include "unicapture.h"
 
 #include <glib.h>
@@ -42,8 +45,15 @@ typedef struct {
     bool key_thread_running;
     pthread_mutex_t kq_lock;
     pthread_cond_t kq_cond;
-    int kq[KEYQ_LEN];
+    int kq[KEYQ_LEN]; // ap_key_t values
     int kq_head, kq_tail;
+    ssap_t ssap; // key presses through the TV's remote-control server
+    uint64_t last_injected_ms; // when we last pressed a key (guarded by kq_lock)
+
+    // Game-data detection (ESPN play-by-play), one game per Multiview tile.
+    pred_game_t games[ESPN_MAX_GAMES];
+    pred_result_t game_results[ESPN_MAX_GAMES];
+    espn_poller_t espn;
 
     remote_listen_t listener;
     debug_http_t http;

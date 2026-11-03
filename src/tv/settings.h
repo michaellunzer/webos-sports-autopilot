@@ -23,6 +23,19 @@ typedef struct {
     // Which foreground app ids count as YouTube TV (comma-separated substrings).
     char foreground_apps[128];
 
+    // Commercial detection: "gamedata" (ESPN play-by-play, works with DRM) or
+    // "video" (screen capture; blocked by YouTube TV's DRM on webOS 4.x).
+    char detection[16];
+    // ESPN event ids of the games in Multiview tiles 1..4 (comma-separated,
+    // empty entries allowed) and their display labels.
+    char tile_events[96];
+    char tile_labels[160];
+    int stream_delay_s; // how far YouTube TV runs behind live
+    int idle_break_s;
+    int trigger_idle_s;
+    int resume_lead_s;
+    int poll_interval_s;
+
     // Autopilot
     int mode; // 0 = multiview, 1 = fullscreen
     int grid_cols;
@@ -64,7 +77,7 @@ typedef struct {
     int key_enter;
     int key_back;
     int key_delay_ms; // pause between injected key presses
-    bool use_uinput;
+    bool use_uinput; // false = press keys via the TV's SSAP server (works with YouTube TV)
 
     // Recording (for tuning)
     char record_dir[128];

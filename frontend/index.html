@@ -12,15 +12,16 @@
   </header>
 
   <main>
-    <section class="panel">
-      <h2>Remote buttons</h2>
-      <table class="keys">
-        <tr><td><span class="dot green"></span>Green</td><td>Autopilot on</td></tr>
-        <tr><td><span class="dot red"></span>Red</td><td>Autopilot off</td></tr>
-        <tr><td><span class="dot yellow"></span>Yellow</td><td>Switch Multiview / Full screen mode</td></tr>
-        <tr><td><span class="dot blue"></span>Blue</td><td>Show status</td></tr>
-      </table>
-      <p class="hint">Open Multiview in YouTube TV, then press Green.</p>
+    <section class="panel actions">
+      <h2>Games in Multiview</h2>
+      <p class="hint">Match each tile to the game YouTube TV shows there. OK cycles through today's games.</p>
+      <button class="btn" data-action="tile" data-tile="0">Top left: <span class="tileLabel">-</span></button>
+      <button class="btn" data-action="tile" data-tile="1">Top right: <span class="tileLabel">-</span></button>
+      <button class="btn" data-action="tile" data-tile="2">Bottom left: <span class="tileLabel">-</span></button>
+      <button class="btn" data-action="tile" data-tile="3">Bottom right: <span class="tileLabel">-</span></button>
+      <button class="btn" data-action="delayDown">Stream delay &minus;5 s</button>
+      <button class="btn" data-action="delayUp">Stream delay +5 s (now <span id="delayLabel">-</span> s)</button>
+      <button class="btn" data-action="reloadGames">Reload game list</button>
     </section>
 
     <section class="panel">
@@ -34,14 +35,20 @@
       <button class="btn" data-action="enable">Turn on</button>
       <button class="btn" data-action="disable">Turn off</button>
       <button class="btn" data-action="mode">Mode: <span id="modeLabel">-</span></button>
-      <button class="btn" data-action="record">Start recording</button>
       <button class="btn" data-action="testkey">Test key (RIGHT)</button>
       <button class="btn" data-action="elevate">Grant root (first run)</button>
     </section>
 
     <section class="panel">
-      <h2>Debug page</h2>
-      <p id="debugUrl">-</p>
+      <h2>Remote buttons</h2>
+      <table class="keys">
+        <tr><td><span class="dot green"></span>Green</td><td>Autopilot on</td></tr>
+        <tr><td><span class="dot red"></span>Red</td><td>Autopilot off</td></tr>
+        <tr><td><span class="dot yellow"></span>Yellow</td><td>Switch Multiview / Full screen mode</td></tr>
+        <tr><td><span class="dot blue"></span>Blue</td><td>Show status</td></tr>
+      </table>
+      <p class="hint">Open Multiview in YouTube TV, then press Green.</p>
+      <p id="debugUrl" class="hint">-</p>
       <pre id="log"></pre>
     </section>
   </main>

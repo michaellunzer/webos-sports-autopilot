@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(webos-sports-autopilot VERSION 0.1.0 LANGUAGES C CXX)
+project(webos-sports-autopilot VERSION 0.2.0 LANGUAGES C CXX)
 
 # HOST_BUILD=ON builds only the portable core (detector + autopilot), the unit
 # tests and the replay tool, so they can run on a normal PC.
@@ -19,6 +19,7 @@ add_library(sportsap_core STATIC
     src/core/detector.c
     src/core/autopilot.c
     src/core/frame_io.c
+    src/core/predictor.c
 )
 target_include_directories(sportsap_core PUBLIC src/core)
 target_link_libraries(sportsap_core PUBLIC m)
@@ -26,12 +27,19 @@ target_compile_options(sportsap_core PRIVATE -Wall -Wextra)
 
 if(HOST_BUILD)
     enable_testing()
-    foreach(t test_detector test_autopilot)
+    foreach(t test_detector test_autopilot test_predictor)
         add_executable(${t} tests/${t}.c)
         target_link_libraries(${t} sportsap_core)
         target_compile_options(${t} PRIVATE -Wall -Wextra)
-        add_test(NAME ${t} COMMAND ${t})
+        add_test(NAME ${t} COMMAND ${t} WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
     endforeach()
+
+    # SSAP key sender against a fake TV server (needs python3).
+    add_executable(test_ssap tests/test_ssap.c src/tv/ssap.c)
+    target_include_directories(test_ssap PRIVATE src/tv)
+    target_compile_definitions(test_ssap PRIVATE SSAP_PORT=39123)
+    target_compile_options(test_ssap PRIVATE -Wall -Wextra)
+    add_test(NAME test_ssap COMMAND ${CMAKE_SOURCE_DIR}/tests/test_ssap.sh $<TARGET_FILE:test_ssap> ${CMAKE_SOURCE_DIR}/tests/fake_ssap.py)
 
     add_executable(replay tools/replay.c)
     target_link_libraries(replay sportsap_core)
@@ -68,6 +76,8 @@ add_executable(sportsap
     src/tv/luna_util.c
     src/tv/debug_http.c
     src/tv/recorder.c
+    src/tv/ssap.c
+    src/tv/espn.c
 )
 target_include_directories(sportsap PRIVATE
     src/tv
