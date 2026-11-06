@@ -59,6 +59,37 @@ Model 55UM7300PUA, firmware 05.40.61, webOS 4.5 (sdkVersion 4.10.0), platform W1
 | **Key injection via SSAP** | ✅ **Works.** This is the websocket server on `ws://127.0.0.1:3000`, the same one LG's app and Home Assistant use. Steps: register (one-time Allow prompt), request `ssap://com.webos.service.networkinput/getPointerInputSocket`, connect to the returned `ws://.../netinput.pointer.sock`, send `type:button\nname:RIGHT\n\n`. The pairing key is saved in `/media/developer/sports-autopilot/ssap-key` (paired already). |
 | **Home Assistant** | The user's HA has `media_player.living_room` (LG webostv), but it showed "off" / not connected during tests. |
 
+## Screen capture: what uses what
+- **`libdile_vt` (and `libvtcapture`)** grabs raw *video frames* from the video plane. It's only used by the v0.1 picture path:
+  - `sportsap --capture-test`
+  - `"detection":"video"`
+  - code in `third_party/unicapture`, backends loaded with dlopen
+  
+  **v0.2.0 does not use it** in its default `gamedata` mode, and it can't capture YouTube TV anyway (DRM).
+- **Screenshots** came from a different mechanism: LG's luna service `luna://com.webos.service.tv.capture/executeOneShot`, run by hand with `luna-send`. Nothing in the repo calls it yet. A caption detector would use this service, not `libdile_vt`.
+
+## Everything tried so far (chronological, with results)
+| # | Attempt | How | Result |
+|---|---|---|---|
+| 1 | Video capture, auto backend | `sportsap --capture-test` (v0.1.0) | `libvtcapture.so.1` missing (webOS 5+ only), then a crash: `libdile_vt_backend.so: undefined symbol: log_printf`. **Fixed in v0.1.1** by exporting executable symbols (`ENABLE_EXPORTS` + `--export-dynamic`) and adding a CI check. |
+| 2 | `libdile_vt`, quirk 0 and quirk 1 (`DILE_VT_CreateEx`) | `--capture-test`, config `video_backend: libdile_vt` | `Failed to get DILE_VT context!` within about 1 ms, plus an `osal_MutexLock` assertion at exit. Same after a reboot. |
+| 3 | PicCap's own `hyperion-webos` for comparison | `hyperion-webos -v --backend libdile_vt --no-gui --dump-frames` | **First run succeeded:** context opened, 320×180, pixelFormat 4 (YUV422 SP), about 30 fps. (That run was killed by `| head`, so it didn't shut down cleanly.) |
+| 4 | Process-name test via symlinks | `/tmp/sapilot`, `/tmp/hyperion-webos` → our binary | Both **got a context**. Names over 15 characters are refused, so the binary was renamed to `sportsap` (v0.1.2). But `DILE_VT_Start` then kept failing: "Attempting video capture init…" every second, and only empty callbacks. |
+| 5 | Same after reboot, plus PicCap again | `sportsap` and `hyperion-webos` with YouTube TV playing | **Both refused the context.** It isn't our code. |
+| 6 | Content matrix (loop: switch screens, capture 4 s each) | `sportsap -v --capture-test 4` | Regular YouTube: ✅ 12/12 real frames (luma 133). YouTube TV single channel: ❌ no context. YouTube TV Multiview: ❌ no context. HDMI1: context OK but all black (luma 0). **Conclusion: DRM blocks video capture of YouTube TV.** |
+| 7 | TV screenshot service | `luna-send … com.webos.service.capture/executeOneShot` | The service doesn't exist on webOS 4.5. |
+| 8 | TV screenshot service (other names) | `com.webos.service.tv.capture/executeOneShot` (works), `tv.display` (no such method), `capture.client` (doesn't exist) | PNG saved (8 KB at 960×540, mostly black). The user reports YouTube TV video is black but **closed captions are visible**. |
+| 9 | Audio | `parec -d pcm_output.monitor …` for 5 s with YouTube TV playing | 0.9 MB of **all-zero samples**. YouTube TV audio bypasses PulseAudio. |
+| 10 | Remote listener / key codes | `sportsap --listen-keys` | ✅ Magic Remote codes: Right 106, Left 105, OK 28, Back 412, Green 399, Red 398. |
+| 11 | Key injection via uinput (one-off) | `sportsap --send-key RIGHT` | "sent key 106: ok", but the Multiview highlight **didn't move**. |
+| 12 | Key injection via uinput (persistent device in the service) | luna `sendKey`, after waiting 5 s | The device registered as `event7` (kbd). **Still ignored.** |
+| 13 | luna `com.webos.service.networkinput/getPointerInputSocket` directly | node script, raw text and websocket framing to `/tmp/netinput.pointer.sock` | The socket path is returned, but nothing happens (not even HOME). |
+| 14 | **SSAP** (TV remote-control websocket, `ws://127.0.0.1:3000`) | node script: register → pointer socket → `type:button` | ✅ **Works.** Highlight moved RIGHT/LEFT/RIGHT; the Allow prompt appeared once and the key was saved. Implemented in C in v0.2.0 (`src/tv/ssap.c`). |
+| 15 | Read YouTube TV's page (DOM) for captions / tile titles | checked the app type and process | YouTube TV runs in **Cobalt** (jailed native binary), not WebAppMgr, so there's no inspector and DOM access isn't possible. |
+| 16 | Home Assistant as a key-press cross-check | `media_player.living_room` | Showed "off" (HA's TV connection wasn't live), so it wasn't used. |
+| 17 | Commercial detection from ESPN play-by-play | offline replay of 13 real games (2026-11-01) | ~92% recall / ~87% precision for break time. Shipped in v0.2.0 (`src/core/predictor.c`, `src/tv/espn.c`). **Not yet run on the TV.** |
+| 18 | Captions as a live/ad signal | screenshot time-lapse every 2 s for about 6 min with CC on | The user made a PDF of the frames. **Not yet shared or analysed.** |
+
 ## Architecture (v0.2.0)
 ```
 ESPN play-by-play (curl, every 5 s, per assigned game)  --> src/tv/espn.c
